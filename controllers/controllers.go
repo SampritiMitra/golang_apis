@@ -30,6 +30,9 @@ func Download(w http.ResponseWriter, r *http.Request){
 	w.WriteHeader(http.StatusCreated)
 	start_time:=time.Now()
 	Stat=make(map[string]string)
+	s:=guuid.New().String()
+	M=make(map[string]models.Response)
+	M[s]=models.Response{Id:s,Start_time:start_time,End_time:start_time,Status:"Queued",Download_type:newLink.Types,Files:Stat}
 
 	if newLink.Types=="Serial"{
 		Serial(newLink)
@@ -37,10 +40,7 @@ func Download(w http.ResponseWriter, r *http.Request){
 		Concurrent(newLink)
 	}
 	end_time:=time.Now()
-	s:=guuid.New().String()
-	M=make(map[string]models.Response)
-
-	M[s]=models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:"Successful",Download_type:newLink.Types,Files:Stat}
+	M[s]=models.Response{End_time:end_time,Status:"Successful",Files:Stat}
 	id:=&models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:"Successful",Download_type:newLink.Types,Files:Stat}
 	by,_:=json.Marshal(id)
 	w.Write(by)
@@ -97,13 +97,14 @@ func DF(filepath string, url string, count *int, ch chan string) error {
 func Concurrent(newLink models.Links){
 	count:=0
 	simul:=5
-	fmt.Println("Concurrent")
+	fmt.Println(len(newLink.Urls))
 	for index:=0;index<len(newLink.Urls);index+=simul{
 		ch:=make(chan string)
-		for i:=0;i<int(math.Min(float64(simul),float64(len(newLink.Urls))));i++{
-			fmt.Println("here",i)
+		for i:=0;i<int(math.Min(float64(simul),float64(len(newLink.Urls)-index)));i++{
 			path:=fmt.Sprintf("/users/sampritimitra/Desktop/file%d.jpg",index+i)
+			fmt.Println(path)
 			Url:=newLink.Urls[index+i]
+			Stat[Url]=path
 			go DF(path, Url,&count,ch)
 		}
 		for{
