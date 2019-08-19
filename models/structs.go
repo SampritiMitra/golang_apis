@@ -19,5 +19,8 @@ type Response struct {
 	Download_type string	`json:"download_type"`
 	Files		map[string]string	`json:"files"`
 }
+type Id struct{
+	Id string `json:"id"`
+}
 type AllLinks []Links
 var Request = AllLinks{}

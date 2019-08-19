@@ -12,7 +12,8 @@ import (
 	"os"
 	"time"
 )
-var M map[string]models.Links
+var M map[string]models.Response
+var Stat map[string]string
 
 func HomeLink(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
@@ -28,6 +29,8 @@ func Download(w http.ResponseWriter, r *http.Request){
 	models.Request = append(models.Request, newLink)
 	w.WriteHeader(http.StatusCreated)
 	start_time:=time.Now()
+	Stat=make(map[string]string)
+
 	if newLink.Types=="Serial"{
 		Serial(newLink)
 	}else{
@@ -35,9 +38,10 @@ func Download(w http.ResponseWriter, r *http.Request){
 	}
 	end_time:=time.Now()
 	s:=guuid.New().String()
-	M=make(map[string]models.Links)
-	M[s]=newLink
-	id:=&models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:"Successful",Download_type:"Serial"}
+	M=make(map[string]models.Response)
+
+	M[s]=models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:"Successful",Download_type:newLink.Types,Files:Stat}
+	id:=&models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:"Successful",Download_type:newLink.Types,Files:Stat}
 	by,_:=json.Marshal(id)
 	w.Write(by)
 }
@@ -63,6 +67,7 @@ func DownloadFile(filepath string, url string) error {
 func Serial(newLink models.Links){
 	for index,Url:=range newLink.Urls{
 		path:=fmt.Sprintf("/users/sampritimitra/Desktop/file%d.jpg",index)
+		Stat[Url]=path
 		if err := DownloadFile(path, Url); err != nil {
 			panic(err)
 		}
@@ -119,4 +124,13 @@ func Concurrent(newLink models.Links){
 			}
 		}
 	}
+}
+func Status(w http.ResponseWriter, r *http.Request){
+	var Id models.Id
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Fprintf(w, "Kindly enter proper data")
+	}
+	json.Unmarshal(reqBody, &Id)
+	fmt.Fprint(w,M[Id.Id])
 }
