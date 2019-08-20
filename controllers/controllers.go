@@ -222,8 +222,8 @@ func Download(w http.ResponseWriter, r *http.Request){
 		Concurrent(newLink)
 	}
 	end_time:=time.Now()
-	M[s]=models.Response{End_time:end_time,Status:"Successful",Files:Stat}
-	id:=&models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:"Successful",Download_type:newLink.Types,Files:Stat}
+	M[s]=models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:"Successful",Download_type:newLink.Types,Files:Stat}
+	id:=&models.Id{Id:s}
 	by,_:=json.Marshal(id)
 	w.Write(by)
 }
