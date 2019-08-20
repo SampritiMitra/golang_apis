@@ -24,6 +24,10 @@ func HomeLink(w http.ResponseWriter, r *http.Request) {
 }
 func Download(w http.ResponseWriter, r *http.Request){
 	var newLink models.Links
+	//if r.Response.StatusCode!=201{
+	//	fmt.Fprint(w,"error in url")
+	//	//return
+	//}
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Fprintf(w, "Kindly enter proper data")
@@ -101,7 +105,7 @@ func DF(filepath string, url string, count *int, ch chan string) error {
 }
 func Concurrent(newLink models.Links, St map[string]string, s string){
 	count:=0
-	simul:=50
+	simul:=10
 	fmt.Println(len(newLink.Urls))
 	for index:=0;index<len(newLink.Urls);index+=simul{
 		ch:=make(chan string,2*simul)
@@ -120,7 +124,7 @@ func Concurrent(newLink models.Links, St map[string]string, s string){
 						if(count==len(newLink.Urls)){
 							St[s]="Successful"
 							t[s]=time.Now()
-							fmt.Println("returning from concurr",St[s])
+							fmt.Println("returning from concurr",St[s],s)
 							return
 						}
 						// want to break outer if i has reached index+simul value
@@ -146,5 +150,8 @@ func Status(w http.ResponseWriter, r *http.Request){
 	temp.End_time=t[id]
 	fmt.Println("stat",St[id],t[id])
 	M[id]=temp
-	fmt.Fprint(w,M[id])
+	//fmt.Fprint(w,M[id])
+	resp:=&models.Response{Id:id,Start_time:M[id].Start_time,End_time:M[id].End_time,Status:M[id].Status,Download_type:M[id].Download_type,Files:M[id].Files}
+	by,_:=json.Marshal(resp)
+	w.Write(by)
 }
