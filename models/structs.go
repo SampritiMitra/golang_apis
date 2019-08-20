@@ -2,10 +2,8 @@ package models
 
 import "time"
 
-type Event struct {
-	ID          int    `json:"ID"`
-	Title       string `json:"Title"`
-	Description string `json:"Description"`
+type Downloading interface{
+	Download()
 }
 type Links struct {
 	Types          string    `json:"types"`
