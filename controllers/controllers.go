@@ -186,6 +186,7 @@ import (
 	"fmt"
 	"github.com/SampritiMitra/golang_apis/models"
 	guuid "github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"io"
 	"io/ioutil"
 	"math"
@@ -313,11 +314,6 @@ func Concurrent(newLink models.Links){
 	}
 }
 func Status(w http.ResponseWriter, r *http.Request){
-	var Id models.Id
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		fmt.Fprintf(w, "Kindly enter proper data")
-	}
-	json.Unmarshal(reqBody, &Id)
-	fmt.Fprint(w,M[Id.Id])
+	id:=(mux.Vars(r)["id"])
+	fmt.Fprint(w,M[id])
 }
