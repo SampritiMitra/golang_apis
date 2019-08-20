@@ -9,4 +9,5 @@ func Route_call(router *mux.Router){
 	router.HandleFunc("/health", controllers.HomeLink)
 	router.HandleFunc("/downloads/{id}", controllers.Status).Methods("GET")
 	router.HandleFunc("/downloads", controllers.Download).Methods("POST")
+	router.HandleFunc("/files", controllers.Files).Methods("GET")
 }

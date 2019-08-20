@@ -6,6 +6,7 @@ import (
 	"github.com/SampritiMitra/golang_apis/models"
 	guuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"math"
@@ -43,7 +44,7 @@ func Download(w http.ResponseWriter, r *http.Request){
 	M[s]=models.Response{Id:s,Start_time:start_time,End_time:start_time,Status:St[s],Download_type:newLink.Types,Files:Stat}
 	counter[s]=0
 	if newLink.Types=="Serial"{
-		Serial(newLink)
+		Serial(newLink,s)
 		t[s]=time.Now()
 	}else{
 		Concurrent(newLink,St,s)
@@ -74,7 +75,7 @@ func DownloadFile(filepath string, url string) error {
 	_, err = io.Copy(out, resp.Body)
 	return err
 }
-func Serial(newLink models.Links){
+func Serial(newLink models.Links,s string){
 	for index,Url:=range newLink.Urls{
 		path:=fmt.Sprintf("/users/sampritimitra/Desktop/file%d.jpg",index)
 		Stat[Url]=path
@@ -82,6 +83,7 @@ func Serial(newLink models.Links){
 			panic(err)
 		}
 	}
+	St[s]="Successful"
 }
 func DF(filepath string, url string, count *int, ch chan string, s string) error {
 	// Get the data
@@ -110,7 +112,7 @@ func Concurrent(newLink models.Links, St map[string]string, s string){
 	simul:=10
 	fmt.Println(len(newLink.Urls))
 	for index:=0;index<len(newLink.Urls);index+=simul{
-		ch:=make(chan string,2*simul)
+		ch:=make(chan string)
 		for i:=0;i<int(math.Min(float64(simul),float64(len(newLink.Urls)-index)));i++{
 			path:=fmt.Sprintf("/users/sampritimitra/Desktop/file%d.jpg",index+i)
 			Url:=newLink.Urls[index+i]
@@ -121,21 +123,21 @@ func Concurrent(newLink models.Links, St map[string]string, s string){
 			for{
 				y:=0
 				select{
-				case <-ch:
-					if(counter[s]==int(math.Min(float64(index+simul),float64(len(newLink.Urls))))){
-						if(counter[s]==len(newLink.Urls)){
-							St[s]="Successful"
-							t[s]=time.Now()
-							fmt.Println("returning from concurr",St[s],s)
-							return
+					case <-ch:
+						if(counter[s]==int(math.Min(float64(index+simul),float64(len(newLink.Urls))))){
+							if(counter[s]==len(newLink.Urls)){
+								St[s]="Successful"
+								t[s]=time.Now()
+								fmt.Println("returning from concurr",St[s],s)
+								return
+							}
+							// want to break outer if i has reached index+simul value
+							//simul is number of go routines simultaneously spawning
+							// like i goes from 0 to 5 and then break at 5
+							// ch close was not working
+							y=1
+							break
 						}
-						// want to break outer if i has reached index+simul value
-						//simul is number of go routines simultaneously spawning
-						// like i goes from 0 to 5 and then break at 5
-						// ch close was not working
-						y=1
-						break
-					}
 				}
 				if y==1{
 					break
@@ -156,4 +158,15 @@ func Status(w http.ResponseWriter, r *http.Request){
 	resp:=&models.Response{Id:id,Start_time:M[id].Start_time,End_time:M[id].End_time,Status:M[id].Status,Download_type:M[id].Download_type,Files:M[id].Files}
 	by,_:=json.Marshal(resp)
 	w.Write(by)
+}
+
+func Files(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	t, err := template.ParseFiles("browse.html")
+	if err != nil {
+		fmt.Fprintf(w, "Unable to load template")
+	}
+
+	// mapp_file := ResponseMap
+	t.Execute(w, M)
 }
