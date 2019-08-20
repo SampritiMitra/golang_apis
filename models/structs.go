@@ -82,5 +82,9 @@ type Response struct {
 type Id struct{
 	Id string `json:"id"`
 }
+type Error struct{
+	Internal_code int `json:"internal_code"`
+	Message string `json:"message"`
+}
 type AllLinks []Links
 var Request = AllLinks{}

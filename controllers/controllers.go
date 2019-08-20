@@ -46,8 +46,14 @@ func Download(w http.ResponseWriter, r *http.Request){
 	if newLink.Types=="Serial"{
 		Serial(newLink,s)
 		t[s]=time.Now()
-	}else{
+	}else if newLink.Types=="Concurrent"{
 		Concurrent(newLink,St,s)
+	} else{
+		id:=&models.Error{4001,
+			"unknown type of download"}
+		by,_:=json.Marshal(id)
+		w.Write(by)
+		return
 	}
 	end_time:=t[s]
 	M[s]=models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:St[s],Download_type:newLink.Types,Files:Stat}
@@ -149,7 +155,14 @@ func Concurrent(newLink models.Links, St map[string]string, s string){
 }
 func Status(w http.ResponseWriter, r *http.Request){
 	id:=(mux.Vars(r)["id"])
-	temp:=M[id]
+	temp,ok:=M[id]
+	if !ok{
+		id:=&models.Error{4001,
+			"unknown download id"}
+		by,_:=json.Marshal(id)
+		w.Write(by)
+		return
+	}
 	temp.Status=St[id]
 	temp.End_time=t[id]
 	fmt.Println("stat",St[id],t[id])
