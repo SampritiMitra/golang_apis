@@ -17,6 +17,7 @@ var M =make(map[string]models.Response)
 var Stat map[string]string
 var St =make(map[string]string)
 var t =make(map[string]time.Time)
+var counter=make(map[string]int)
 
 func HomeLink(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
@@ -40,7 +41,7 @@ func Download(w http.ResponseWriter, r *http.Request){
 	s:=guuid.New().String()
 	St[s]="Queued"
 	M[s]=models.Response{Id:s,Start_time:start_time,End_time:start_time,Status:St[s],Download_type:newLink.Types,Files:Stat}
-
+	counter[s]=0
 	if newLink.Types=="Serial"{
 		Serial(newLink)
 		t[s]=time.Now()
@@ -82,10 +83,11 @@ func Serial(newLink models.Links){
 		}
 	}
 }
-func DF(filepath string, url string, count *int, ch chan string) error {
+func DF(filepath string, url string, count *int, ch chan string, s string) error {
 	// Get the data
 	resp, err := http.Get(url)
 	*count++
+	counter[s]++
 	if err != nil {
 		return err
 	}
@@ -113,15 +115,15 @@ func Concurrent(newLink models.Links, St map[string]string, s string){
 			path:=fmt.Sprintf("/users/sampritimitra/Desktop/file%d.jpg",index+i)
 			Url:=newLink.Urls[index+i]
 			Stat[Url]=path
-			go DF(path, Url,&count,ch)
+			go DF(path, Url,&count,ch,s)
 		}
 		go func() {
 			for{
 				y:=0
 				select{
 				case <-ch:
-					if(count==int(math.Min(float64(index+simul),float64(len(newLink.Urls))))){
-						if(count==len(newLink.Urls)){
+					if(counter[s]==int(math.Min(float64(index+simul),float64(len(newLink.Urls))))){
+						if(counter[s]==len(newLink.Urls)){
 							St[s]="Successful"
 							t[s]=time.Now()
 							fmt.Println("returning from concurr",St[s],s)
