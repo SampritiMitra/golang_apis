@@ -14,53 +14,56 @@ import (
 	"os"
 	"time"
 )
-var M =make(map[string]models.Response)
-var Stat map[string]string
-var St =make(map[string]string)
-var t =make(map[string]time.Time)
+var ResponseMap =make(map[string]models.Response)
+var UrlToPathMap map[string]string
+var IdToStatusMap =make(map[string]string)
+var TimerMap =make(map[string]time.Time)
 var counter=make(map[string]int)
 
 func HomeLink(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	fmt.Fprintf(w, "OK")
 }
+
 func Download(w http.ResponseWriter, r *http.Request){
 	var newLink models.Links
-	//if r.Response.StatusCode!=201{
-	//	fmt.Fprint(w,"error in url")
-	//	//return
-	//}
+	w.Header().Set("Content-Type","application/json")
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Fprintf(w, "Kindly enter proper data")
 	}
 	json.Unmarshal(reqBody, &newLink)
 	models.Request = append(models.Request, newLink)
-	w.WriteHeader(http.StatusCreated)
+	//w.WriteHeader(http.StatusCreated)
+
 	start_time:=time.Now()
-	Stat=make(map[string]string)
+	UrlToPathMap =make(map[string]string)
 	s:=guuid.New().String()
-	St[s]="Queued"
-	M[s]=models.Response{Id:s,Start_time:start_time,End_time:start_time,Status:St[s],Download_type:newLink.Types,Files:Stat}
+	IdToStatusMap[s]="Queued"
+	ResponseMap[s]=models.Response{Id:s,Start_time:start_time,End_time:start_time,Status:IdToStatusMap[s],Download_type:newLink.Types,Files: UrlToPathMap}
 	counter[s]=0
+
 	if newLink.Types=="Serial"{
 		Serial(newLink,s)
-		t[s]=time.Now()
+		TimerMap[s]=time.Now()
 	}else if newLink.Types=="Concurrent"{
-		Concurrent(newLink,St,s)
+		Concurrent(newLink,IdToStatusMap,s)
 	} else{
+		w.WriteHeader(400)
 		id:=&models.Error{4001,
 			"unknown type of download"}
 		by,_:=json.Marshal(id)
 		w.Write(by)
 		return
 	}
-	end_time:=t[s]
-	M[s]=models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:St[s],Download_type:newLink.Types,Files:Stat}
+
+	end_time:= TimerMap[s]
+	ResponseMap[s]=models.Response{Id:s,Start_time:start_time,End_time:end_time,Status:IdToStatusMap[s],Download_type:newLink.Types,Files: UrlToPathMap}
 	id:=&models.Id{Id:s}
 	by,_:=json.Marshal(id)
 	w.Write(by)
 }
+
 func DownloadFile(filepath string, url string) error {
 	// Get the data
 	resp, err := http.Get(url)
@@ -81,16 +84,18 @@ func DownloadFile(filepath string, url string) error {
 	_, err = io.Copy(out, resp.Body)
 	return err
 }
+
 func Serial(newLink models.Links,s string){
 	for index,Url:=range newLink.Urls{
 		path:=fmt.Sprintf("/users/sampritimitra/Desktop/file%d.jpg",index)
-		Stat[Url]=path
+		UrlToPathMap[Url]=path
 		if err := DownloadFile(path, Url); err != nil {
 			panic(err)
 		}
 	}
-	St[s]="Successful"
+	IdToStatusMap[s]="Successful"
 }
+
 func DF(filepath string, url string, count *int, ch chan string, s string) error {
 	// Get the data
 	resp, err := http.Get(url)
@@ -113,16 +118,18 @@ func DF(filepath string, url string, count *int, ch chan string, s string) error
 	ch<-"done"
 	return err
 }
-func Concurrent(newLink models.Links, St map[string]string, s string){
+
+func Concurrent(newLink models.Links, IdToStatusMap map[string]string, s string){
 	count:=0
-	simul:=10
+	simul:=2
 	fmt.Println(len(newLink.Urls))
 	for index:=0;index<len(newLink.Urls);index+=simul{
 		ch:=make(chan string)
 		for i:=0;i<int(math.Min(float64(simul),float64(len(newLink.Urls)-index)));i++{
 			path:=fmt.Sprintf("/users/sampritimitra/Desktop/file%d.jpg",index+i)
+			fmt.Println(int(math.Min(float64(simul),float64(len(newLink.Urls)-index))))
 			Url:=newLink.Urls[index+i]
-			Stat[Url]=path
+			UrlToPathMap[Url]=path
 			go DF(path, Url,&count,ch,s)
 		}
 		go func() {
@@ -132,9 +139,10 @@ func Concurrent(newLink models.Links, St map[string]string, s string){
 					case <-ch:
 						if(counter[s]==int(math.Min(float64(index+simul),float64(len(newLink.Urls))))){
 							if(counter[s]==len(newLink.Urls)){
-								St[s]="Successful"
-								t[s]=time.Now()
-								fmt.Println("returning from concurr",St[s],s)
+								IdToStatusMap[s]="Successful"
+								TimerMap[s]=time.Now()
+								fmt.Println("returning from concurr",IdToStatusMap[s],s)
+								//close(ch)
 								return
 							}
 							// want to break outer if i has reached index+simul value
@@ -153,22 +161,24 @@ func Concurrent(newLink models.Links, St map[string]string, s string){
 		//fmt.Println("count",count)
 	}
 }
+
 func Status(w http.ResponseWriter, r *http.Request){
 	id:=(mux.Vars(r)["id"])
-	temp,ok:=M[id]
+	temp,ok:=ResponseMap[id]
 	if !ok{
+		w.WriteHeader(400)
 		id:=&models.Error{4001,
 			"unknown download id"}
 		by,_:=json.Marshal(id)
 		w.Write(by)
 		return
 	}
-	temp.Status=St[id]
-	temp.End_time=t[id]
-	fmt.Println("stat",St[id],t[id])
-	M[id]=temp
+	temp.Status=IdToStatusMap[id]
+	temp.End_time= TimerMap[id]
+	fmt.Println("stat",IdToStatusMap[id], TimerMap[id])
+	ResponseMap[id]=temp
 	//fmt.Fprint(w,M[id])
-	resp:=&models.Response{Id:id,Start_time:M[id].Start_time,End_time:M[id].End_time,Status:M[id].Status,Download_type:M[id].Download_type,Files:M[id].Files}
+	resp:=&models.Response{Id:id,Start_time:ResponseMap[id].Start_time,End_time:ResponseMap[id].End_time,Status:ResponseMap[id].Status,Download_type:ResponseMap[id].Download_type,Files:ResponseMap[id].Files}
 	by,_:=json.Marshal(resp)
 	w.Write(by)
 }
@@ -181,5 +191,5 @@ func Files(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// mapp_file := ResponseMap
-	t.Execute(w, M)
+	t.Execute(w, ResponseMap)
 }
