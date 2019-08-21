@@ -96,10 +96,9 @@ func Serial(newLink models.Links,s string){
 	IdToStatusMap[s]="Successful"
 }
 
-func DF(filepath string, url string, count *int, ch chan string, s string) error {
+func DF(filepath string, url string, ch chan string, s string) error {
 	// Get the data
 	resp, err := http.Get(url)
-	*count++
 	counter[s]++
 	if err != nil {
 		return err
@@ -120,7 +119,6 @@ func DF(filepath string, url string, count *int, ch chan string, s string) error
 }
 
 func Concurrent(newLink models.Links, IdToStatusMap map[string]string, s string){
-	count:=0
 	simul:=2
 	fmt.Println(len(newLink.Urls))
 	for index:=0;index<len(newLink.Urls);index+=simul{
@@ -130,7 +128,7 @@ func Concurrent(newLink models.Links, IdToStatusMap map[string]string, s string)
 			fmt.Println(int(math.Min(float64(simul),float64(len(newLink.Urls)-index))))
 			Url:=newLink.Urls[index+i]
 			UrlToPathMap[Url]=path
-			go DF(path, Url,&count,ch,s)
+			go DF(path, Url,ch,s)
 		}
 		go func() {
 			for{
